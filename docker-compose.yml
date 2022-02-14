@@ -1,0 +1,29 @@
+version: '3.7'
+services:
+
+  indexer:
+    tty: true
+    container_name: indexer
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - BLOCK_TIME=4
+    restart: always
+    depends_on:
+      - db
+
+  db:
+    image: postgres:14.2-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - '5432:5432'
+    volumes: 
+      - db:/var/lib/postgresql/data
+
+volumes:
+  db:
+    driver: local
