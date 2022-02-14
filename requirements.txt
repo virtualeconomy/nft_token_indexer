@@ -1,1 +1,4 @@
 PyYAML
+SQLAlchemy>=1.4.3
+fastapi
+uvicorn
