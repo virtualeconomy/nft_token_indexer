@@ -14,6 +14,9 @@ services:
       - NODE_IP=gabija.vos.systems
       - NODE_PORT=9924
       - NODE_API_KEY=5&!aJ#gyu2i#
+      - DB_USER=postgres
+      - DB_PASS=postgres
+      - DB_IP=db
     restart: always
     depends_on:
       - db
@@ -29,3 +32,7 @@ services:
       - '5432:5432'
     volumes: 
       - .db:/var/lib/postgresql/data
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
