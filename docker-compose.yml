@@ -11,6 +11,9 @@ services:
       - "8000:8000"
     environment:
       - BLOCK_TIME=4
+      - NODE_IP=gabija.vos.systems
+      - NODE_PORT=9924
+      - NODE_API_KEY=5&!aJ#gyu2i#
     restart: always
     depends_on:
       - db
