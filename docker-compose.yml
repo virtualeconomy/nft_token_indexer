@@ -6,7 +6,7 @@ services:
     container_name: indexer
     build: .
     volumes: 
-      - conf.yaml:/app/conf.yaml
+      - .conf.yaml:/app/conf.yaml
     ports:
       - "8000:8000"
     environment:
@@ -20,6 +20,7 @@ services:
 
   db:
     image: postgres:14.2-alpine
+    container_name: indexer_db
     restart: always
     environment:
       - POSTGRES_USER=postgres
@@ -27,8 +28,4 @@ services:
     ports:
       - '5432:5432'
     volumes: 
-      - db:/var/lib/postgresql/data
-
-volumes:
-  db:
-    driver: local
+      - .db:/var/lib/postgresql/data
