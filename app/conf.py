@@ -23,3 +23,6 @@ with open("conf.yaml", "r") as f:
         config = yaml.safe_load(f)
     except yaml.YAMLError as exc:
         print(exc)
+
+
+contract_ids = list(config.keys())
