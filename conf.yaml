@@ -1,7 +1,8 @@
-conf:
-  1:
-    nft_contract_id: CF2PaG83haRCSMP9s9M2XegaJUPqwkfarxr
-    name: "test1"
-  2.
-    nft_contract_id: CZ2GaG83haRCSKR9y1N2XiJaJUPqwkwarz
-    name: "test2"
+# token config file
+
+1:
+  nft_contract_id: CF2PaG83haRCSMP9s9M2XegaJUPqwkfarxr
+  name: "test1"
+2:
+  nft_contract_id: CZ2GaG83haRCSKR9y1N2XiJaJUPqwkwarz
+  name: "test2"
