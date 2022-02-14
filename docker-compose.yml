@@ -5,6 +5,8 @@ services:
     tty: true
     container_name: indexer
     build: .
+    volumes: 
+      - conf.yaml:/app/conf.yaml
     ports:
       - "8000:8000"
     environment:
