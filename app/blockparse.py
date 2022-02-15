@@ -8,6 +8,7 @@ import base58
 import py_v_sdk as pv
 from py_v_sdk.data_entry import DataStack as PVDataStack
 
+from log import logger
 import conf
 
 
@@ -131,6 +132,8 @@ async def is_valid_send_token_tx(tx: Dict[str, Any], api: pv.NodeAPI) -> bool:
 async def main():
     host = f"http://{conf.node_ip}:{conf.node_port}"
 
+    logger.info("Starting the main loop.")
+
     try:
         api = await pv.NodeAPI.new(host)
         chain = pv.Chain(api)
@@ -138,6 +141,8 @@ async def main():
 
         for ctrt_id in conf.contract_ids:
             ctrt_id = "CF2PaG83haRCSMP9s9M2XegaJUPqwkfarxr"
+
+            logger.info(f"Monitoring contract: {ctrt_id}")
 
             init_height = await get_init_block_height(ctrt_id, api)
             latest_height = await chain.height
@@ -172,10 +177,12 @@ async def main():
 
                         if ctrt_type.is_tok_ctrt:
                             amount = data_stack.entries[1].data.data
-                        
-                        print("Recipient: ", recipient)
-                        print("Token Index: ", tok_idx)
-                        print("Amount: ", amount)
+
+                        logger.debug(f'''Found a relevant txn! \n
+                                "recipient": {recipient},
+                                "token_index": {tok_idx},
+                                "amount": {amount}'''
+                               )
 
     finally:
         await api.sess.close()
