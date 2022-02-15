@@ -11,7 +11,7 @@ from py_v_sdk.data_entry import DataStack as PVDataStack
 
 from log import logger
 import conf
-from base import async_session, Base
+from base import engine, Base
 
 
 MAX_BLOCKS_PER_REQ = 100
@@ -195,7 +195,7 @@ async def main():
 
                         print(stmt)
 
-                        async with async_session() as conn:
+                        async with engine.begin() as conn:
                             conn.execute(stmt)
 
     finally:
