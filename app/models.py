@@ -7,7 +7,7 @@ from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
 
 
-class TokenOnwership(Base):
+class TokenOwnership(Base):
     """
     CREATE TABLE [CONTRACT_ID] (
         user_addr VARCHAR(255) NOT NULL,
