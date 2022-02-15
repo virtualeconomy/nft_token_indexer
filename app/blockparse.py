@@ -4,12 +4,14 @@ import enum
 from typing import Any, Dict, List
 
 import base58
+from sqlalchemy import insert
 
 import py_v_sdk as pv
 from py_v_sdk.data_entry import DataStack as PVDataStack
 
 from log import logger
 import conf
+from base import async_session, Base
 
 
 MAX_BLOCKS_PER_REQ = 100
@@ -183,6 +185,18 @@ async def main():
                                 "token_index": {tok_idx},
                                 "amount": {amount}'''
                                )
+                        
+                        table = Base.metadata.tables[ctrt_id]
+
+                        stmt = (
+                            insert(table).
+                            values(user_addr=recipient, token_idx=tok_idx, amount=amount)
+                        )
+
+                        print(stmt)
+
+                        async with async_session() as conn:
+                            conn.execute(stmt)
 
     finally:
         await api.sess.close()
