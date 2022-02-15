@@ -151,7 +151,7 @@ async def main():
                     txs = b["transactions"]
 
                     for tx in txs:
-                        if not is_valid_send_token_tx(tx, api):
+                        if not await is_valid_send_token_tx(tx, api):
                             continue
                         if tx["contractId"] != ctrt_id:
                             continue
