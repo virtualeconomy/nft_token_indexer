@@ -4,7 +4,6 @@ import yaml
 if environ.get('APP_ENV') == 'docker':
     node_api_key = environ.get('NODE_API_KEY', 'nodeapikey')
     node_ip = environ.get('NODEIP', 'vsystems')
-    node_port = environ.get('NODE_PORT', '9924')
     block_time = int(environ.get('BLOCK_TIME', '4'))
     db_user = environ.get('DB_USER')
     db_pass = environ.get('DB_PASS')
@@ -13,7 +12,6 @@ if environ.get('APP_ENV') == 'docker':
 else:
     node_api_key = "5&!aJ#gyu2i#"
     node_ip = "gabija.vos.systems"
-    node_port="9924"
     block_time = 4
     db_user = "postgres"
     db_pass = "postgres"
