@@ -173,9 +173,9 @@ async def main():
                         if ctrt_type.is_tok_ctrt:
                             amount = data_stack.entries[1].data.data
                         
-                        print(recipient)
-                        print(tok_idx)
-                        print(amount)
+                        print("Recipient: ", recipient)
+                        print("Token Index: ", tok_idx)
+                        print("Amount: ", amount)
 
     finally:
         await api.sess.close()
