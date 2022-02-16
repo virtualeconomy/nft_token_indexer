@@ -1,16 +1,28 @@
 import uvicorn
 from fastapi import FastAPI
-
-from sqlalchemy import select
-
-from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.middleware.cors import CORSMiddleware
+
+import conf
 
 app = FastAPI()
 
 @app.get("/")
 async def hello_world():
     return "hello_world"
+
+@app.get("/associatedtokens/{contract_id}/{address}")
+async def associatedtokens(contract_id: str, address: str):
+
+    conn = await asyncpg.connect(user=conf.db_user, password=conf.db_pass,
+                                 database=conf.db, host=conf.db_ip)
+    
+    query = await conn.execute(f'''
+        SELECT token_idx
+        FROM {contract_id}
+        WHERE user_addr = {address};
+    ''')
+
+    return query
 
 
 app.add_middleware(
