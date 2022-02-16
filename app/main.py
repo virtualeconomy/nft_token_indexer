@@ -22,7 +22,7 @@ async def associatedtokens(contract_id: str, address: str):
         WHERE user_addr = {address};
     ''')
 
-    return query
+    return [i['token_idx'] for i in query]
 
 
 app.add_middleware(
