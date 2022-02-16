@@ -147,56 +147,64 @@ async def main():
             logger.info(f"Monitoring contract: {ctrt_id}")
 
             init_height = await get_init_block_height(ctrt_id, api)
-            latest_height = await chain.height
+            start_height = init_height
 
-            for h in range(init_height, latest_height + 1 - UNCONFIRMED_THRESHOLD, MAX_BLOCKS_PER_REQ):
-                blocks = await get_blocks(h, h + MAX_BLOCKS_PER_REQ - 1, api)
+            while True:
+                latest_height = await chain.height
+                end_height = latest_height - UNCONFIRMED_THRESHOLD
 
-                for b in blocks:
-                    if b["transaction count"] <= 1:
-                        continue
-                    txs = b["transactions"]
+                for h in range(start_height, end_height + 1, MAX_BLOCKS_PER_REQ):
+                    blocks = await get_blocks(h, h + MAX_BLOCKS_PER_REQ - 1, api)
 
-                    for tx in txs:
-                        if not await is_valid_send_token_tx(tx, api):
+                    for b in blocks:
+                        if b["transaction count"] <= 1:
                             continue
-                        if tx["contractId"] != ctrt_id:
-                            continue
-                        
-                        func_data = tx["functionData"]
-                        data_stack = PVDataStack.deserialize(
-                            base58.b58decode(func_data)
-                        )
-                        recipient = data_stack.entries[0].data.data
+                        txs = b["transactions"]
 
-                        ctrt_type = await TokenContractType.from_ctrt_id(ctrt_id, api)
+                        for tx in txs:
+                            if not await is_valid_send_token_tx(tx, api):
+                                continue
+                            if tx["contractId"] != ctrt_id:
+                                continue
+                            
+                            func_data = tx["functionData"]
+                            data_stack = PVDataStack.deserialize(
+                                base58.b58decode(func_data)
+                            )
+                            recipient = data_stack.entries[0].data.data
 
-                        tok_idx = 0
-                        amount = 1
+                            ctrt_type = await TokenContractType.from_ctrt_id(ctrt_id, api)
 
-                        if ctrt_type.is_nft_ctrt:
-                            tok_idx = data_stack.entries[1].data.data
+                            tok_idx = 0
+                            amount = 1
 
-                        if ctrt_type.is_tok_ctrt:
-                            amount = data_stack.entries[1].data.data
+                            if ctrt_type.is_nft_ctrt:
+                                tok_idx = data_stack.entries[1].data.data
 
-                        logger.debug(f'''Found a relevant txn! \n
-                                "recipient": {recipient},
-                                "token_index": {tok_idx},
-                                "amount": {amount}'''
-                               )
-                        
-                        table = Base.metadata.tables[ctrt_id]
+                            if ctrt_type.is_tok_ctrt:
+                                amount = data_stack.entries[1].data.data
 
-                        stmt = (
-                            insert(table).
-                            values(user_addr=recipient, token_idx=tok_idx, amount=amount)
-                        )
+                            logger.debug(f'''Found a relevant txn! \n
+                                    "recipient": {recipient},
+                                    "token_index": {tok_idx},
+                                    "amount": {amount}'''
+                                )
+                            
+                            table = Base.metadata.tables[ctrt_id]
 
-                        print(stmt)
+                            stmt = (
+                                insert(table).
+                                values(user_addr=recipient, token_idx=tok_idx, amount=amount)
+                            )
 
-                        async with engine.begin() as conn:
-                            conn.execute(stmt)
+                            print(stmt)
+
+                            async with engine.begin() as conn:
+                                conn.execute(stmt)
+
+                # Wait for new confirmed blocks
+                start_height = end_height + 1
+                await asyncio.sleep(conf.block_time)
 
     finally:
         await api.sess.close()
