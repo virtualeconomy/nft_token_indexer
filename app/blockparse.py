@@ -17,6 +17,8 @@ from base import engine, Base
 MAX_BLOCKS_PER_REQ = 100
 EXEC_CTRT_TX_TYPE = 9
 TX_STATUS_SUCCESS = "Success"
+# The number of blocks traced back from the latest block to be considered unconfirmed
+UNCONFIRMED_THRESHOLD = 15
 
 
 class TokenContractType(enum.Enum):
@@ -139,7 +141,6 @@ async def main():
     try:
         api = await pv.NodeAPI.new(host)
         chain = pv.Chain(api)
-        UNCONFIRMED_THRESHOLD = 15
 
         for ctrt_id in conf.contract_ids:
             ctrt_id = "CF2PaG83haRCSMP9s9M2XegaJUPqwkfarxr"
