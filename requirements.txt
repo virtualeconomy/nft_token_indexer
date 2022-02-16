@@ -1,5 +1,4 @@
 PyYAML
-SQLAlchemy>=1.4.3
 asyncpg
 fastapi
 uvicorn
