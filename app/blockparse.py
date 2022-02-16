@@ -118,6 +118,7 @@ class SendTokenTxMonitor:
     def __init__(self, ctrt_id: str, chain: pv.Chain) -> None:
         self.chain = chain
         self.ctrt = TokenContract(ctrt_id, chain.api)
+        self.ctrt_id = ctrt_id
         self.records: List["TokenOwnershipRecord"] = []
 
     async def start(self):
@@ -168,13 +169,14 @@ class SendTokenTxMonitor:
         logger.debug(f"Found a user token ownership record: {r}")
         self.records.append(r)
     
-    async def _insert_to_db(self) -> None:
+    async def _insert_to_db(self, record: TokenOwnershipRecord) -> None:
 
         conn = await asyncpg.connect(user=conf.db_user, password=conf.db_pass,
-                                database=conf.db, host=conf.db_ip)
+                                     database=conf.db, host=conf.db_ip)
         
         await conn.execute(f'''
-            INSERT INTO {self.ctrt_id.lower()}(user_addr, token_idx, amount),  VALUES()''', "ATytsw58Q1PBUcduYnA6iwT8S8jHZcLTz5i", 1, 1
+            INSERT INTO {self.ctrt_id.lower()}(user_addr, token_idx, amount) VALUES($1, $2, $3)''', 
+                                                record.user_addr, record,token_idx, record.amount
         )
         await conn.close()
     
