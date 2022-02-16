@@ -1,42 +1,24 @@
 import asyncio
+import asyncpg
 
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.schema import UniqueConstraint
-from sqlalchemy import Table, Column, String, Integer
-
-from conf import db_user, db_pass, db_ip, contract_ids
-
-db_url = f"postgresql+asyncpg://{db_user}:{db_pass}@{db_ip}"
-
-engine = create_async_engine(db_url, echo=True)
-Base = declarative_base()
-async_session = sessionmaker(
-    engine, class_=AsyncSession, expire_on_commit=False
-)
+import conf
 
 
-async def init_models():
+async def init_table(ctrt_id: str):
+    """initiate all token tables"""
 
-    async with engine.begin() as conn:
+    conn = await asyncpg.connect(user=conf.db_user, password=conf.db_pass,
+                             database=conf.db, host=conf.db_ip)
 
-        for i in contract_ids:
+    # Execute a statement to create a new table.
+    await conn.execute(f'''
+        CREATE TABLE {ctrt_id}(
+        user_addr      VARCHAR(100) NOT NULL,
+        token_idx      INT          NOT NULL,
+        amount 		   INT          NOT NULL
+        );
+    ''')
 
-            _ = Table(i, Base.metadata,
-                        Column("user_addr", String),
-                        Column("token_idx", Integer, index=True),
-                        Column("amount", Integer),
+    await conn.close()
 
-                        UniqueConstraint("user_addr", "token_idx", name="unique_user_addr_token_idx"),
-                    )
-        
-        await conn.run_sync(Base.metadata.create_all)
-
-
-async def get_session() -> AsyncSession:
-    async with async_session() as session:
-        yield session
-
-asyncio.run(init_models())
+#asyncio.run(init_table())

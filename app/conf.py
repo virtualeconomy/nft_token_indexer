@@ -9,6 +9,7 @@ if environ.get('APP_ENV') == 'docker':
     db_user = environ.get('DB_USER')
     db_pass = environ.get('DB_PASS')
     db_ip = environ.get('DB_IP')
+    db = environ.get('POSTRES_DATABASE')
 
 else:
     node_api_key = "5&!aJ#gyu2i#"
@@ -18,6 +19,7 @@ else:
     db_user = "postgres"
     db_pass = "postgres"
     db_ip = "0.0.0.0"
+    db = "indexer"
 
 
 with open("conf.yaml", "r") as f:

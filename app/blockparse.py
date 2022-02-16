@@ -1,5 +1,6 @@
 # block parsing logic be here
 import asyncio
+import asyncpg
 import dataclasses
 import enum
 from typing import Any, Dict, List, Optional
@@ -11,8 +12,8 @@ import py_v_sdk as pv
 from py_v_sdk.data_entry import DataStack as PVDataStack
 
 from log import logger
+from base import init_table
 import conf
-from base import engine, Base
 
 
 MAX_BLOCKS_PER_REQ = 100
@@ -168,9 +169,14 @@ class SendTokenTxMonitor:
         self.records.append(r)
     
     async def _insert_to_db(self) -> None:
-        # TODO:
-        # insert to db here
-        self.records.clear()
+
+        conn = await asyncpg.connect(user=conf.db_user, password=conf.db_pass,
+                                database=conf.db, host=conf.db_ip)
+        
+        await conn.execute(f'''
+            INSERT INTO {self.ctrt_id.lower()}(user_addr, token_idx, amount),  VALUES()''', "ATytsw58Q1PBUcduYnA6iwT8S8jHZcLTz5i", 1, 1
+        )
+        await conn.close()
     
     async def _is_desired_tx(self, tx: Dict[str, Any]) -> bool:
         if not tx["status"] == TX_STATUS_SUCCESS:
