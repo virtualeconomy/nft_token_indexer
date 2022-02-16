@@ -7,7 +7,7 @@ from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
 
 
-class TokenOnwership(Base):
+class TokenOwnership(Base):
     """
     CREATE TABLE [CONTRACT_ID] (
         user_addr VARCHAR(255) NOT NULL,
@@ -20,7 +20,3 @@ class TokenOnwership(Base):
     user_addr = Column(String)
     token_idx = Column(Integer, index=True)
     amount = Column(Integer)
-
-    __table_args__ = (
-        UniqueConstraint("user_addr", "token_idx", name="unique_user_addr_token_idx"),
-    )

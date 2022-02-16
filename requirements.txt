@@ -3,4 +3,5 @@ SQLAlchemy>=1.4.3
 asyncpg
 fastapi
 uvicorn
+base58
 -e git+https://github.com/virtualeconomy/py-v-sdk.git@develop#egg=py_v_sdk
