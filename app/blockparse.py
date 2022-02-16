@@ -143,7 +143,6 @@ async def main():
         chain = pv.Chain(api)
 
         for ctrt_id in conf.contract_ids:
-            ctrt_id = "CF2PaG83haRCSMP9s9M2XegaJUPqwkfarxr"
 
             logger.info(f"Monitoring contract: {ctrt_id}")
 
