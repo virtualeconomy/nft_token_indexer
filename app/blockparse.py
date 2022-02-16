@@ -121,6 +121,8 @@ class SendTokenTxMonitor:
         self.ctrt_id = ctrt_id
         self.records: List["TokenOwnershipRecord"] = []
 
+        # we should have a table creation logic here
+
     async def start(self):
         logger.info(f"Start monitoring contract: {self.ctrt.ctrt_id}")
 
