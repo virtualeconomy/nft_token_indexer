@@ -1,7 +1,8 @@
 # block parsing logic be here
 import asyncio
+import dataclasses
 import enum
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import base58
 from sqlalchemy import insert
@@ -31,180 +32,172 @@ class TokenContractType(enum.Enum):
     TOKEN_V2_WHITELIST = "TokenContractWithWhitelist"
     TOKEN_V2_BLACKLIST = "TokenCtrtWithoutSplitV2BlackList"
 
+
+@dataclasses.dataclass
+class TokenOwnershipRecord:
+    user_addr: str
+    token_idx: int = 0
+    amount: int = 0
+
+
+class TokenContract:
+
+    def __init__(self, ctrt_id: str, api: pv.NodeAPI) -> None:
+        self.ctrt_id = ctrt_id
+        self.api = api
+        self._info: Dict[str, Any] = {}
+        self._type: Optional["TokenContractType"] = None
+
     @property
-    def send_func_idx(self) -> int:
-        if self.is_nft_ctrt:
+    async def info(self) -> Dict[str, Any]:
+        """
+        Example response.
+        {
+            "contractId": "CF5HTwYNrZDFBG371jfTiKpNPfRpEHdgj6B",
+            "transactionId": "DwySUmHwTbaRBMBXjk6PmXKvow1wLi6bhpxteK2Smrph",
+            "type": "TokenContractWithWhitelist",
+            ...
+            "height": 1009393
+        }
+        """    
+        if not self._info:
+            edpt = f"/contract/info/{self.ctrt_id}"
+            self._info = await self.api.get(edpt)
+
+        return self._info
+    
+    @property
+    async def init_height(self) -> int:
+        info = await self.info
+        return info["height"]
+    
+    @property
+    async def type(self) -> "TokenContractType":
+        if not self._type:
+            info = await self.info
+            self._type = TokenContractType(info["type"])
+
+        return self._type
+
+    @property
+    async def is_nft_ctrt(self) -> bool:
+        return (await self.type) in (
+            TokenContractType.NFT,
+            TokenContractType.NFT_V2_BLACKLIST,
+            TokenContractType.NFT_V2_WHITELIST,
+        )
+    
+    @property
+    async def is_tok_ctrt(self) -> bool:
+        return (await self.type) in (
+            TokenContractType.TOKEN_NO_SPLIT,
+            TokenContractType.TOKEN_WITH_SPLIT,
+            TokenContractType.TOKEN_V2_WHITELIST,
+            TokenContractType.TOKEN_V2_BLACKLIST,
+        )
+    
+    @property
+    async def send_func_idx(self) -> int:
+        if (await self.is_nft_ctrt):
             return 2
-        elif self == self.TOKEN_NO_SPLIT:
+        elif (await self.type) == TokenContractType.TOKEN_NO_SPLIT:
             return 3
-        elif self in (
-            self.TOKEN_WITH_SPLIT,
-            self.TOKEN_V2_WHITELIST,
-            self.TOKEN_V2_BLACKLIST,
+        elif (await self.type) in (
+            TokenContractType.TOKEN_WITH_SPLIT,
+            TokenContractType.TOKEN_V2_WHITELIST,
+            TokenContractType.TOKEN_V2_BLACKLIST,
         ):
             return 4
         else:
             raise Exception("Function index for send is unknown")
+
+
+class SendTokenTxMonitor:
+
+    def __init__(self, ctrt_id: str, chain: pv.Chain) -> None:
+        self.chain = chain
+        self.ctrt = TokenContract(ctrt_id, chain.api)
+        self.records: List["TokenOwnershipRecord"] = []
+
+    async def start(self):
+        logger.info(f"Start monitoring contract: {self.ctrt.ctrt_id}")
+
+        start_height = await self.ctrt.init_height
+
+        while True:
+            latest_height = await self.chain.height
+            end_height = latest_height - UNCONFIRMED_THRESHOLD
+
+            for h in range(start_height, end_height + 1, MAX_BLOCKS_PER_REQ):
+                blocks = await self.chain.get_blocks_within(h, h + MAX_BLOCKS_PER_REQ - 1)
+                await self._parse_blocks(blocks)
+
+            await self._insert_to_db()
+            start_height = end_height + 1
+            await asyncio.sleep(conf.block_time)
+
+    async def _parse_blocks(self, blocks: List[Dict[str, Any]]) -> None:
+        for b in blocks:
+            if b["transaction count"] <= 1:
+                continue
+            await self._parse_txs(b["transactions"])
     
-    @property
-    def is_nft_ctrt(self) -> bool:
-        return self in (
-            self.NFT,
-            self.NFT_V2_BLACKLIST,
-            self.NFT_V2_WHITELIST,
+    async def _parse_txs(self, txs: List[Dict[str, Any]]) -> None:
+        for tx in txs:
+            if not await self._is_desired_tx(tx):
+                continue
+            await self._parse_tx(tx)
+
+    async def _parse_tx(self, tx: Dict[str, Any]) -> None:
+        func_data = tx["functionData"]
+        data_stack = PVDataStack.deserialize(
+            base58.b58decode(func_data)
         )
-    
-    @property
-    def is_tok_ctrt(self) -> bool:
-        return self in (
-            self.TOKEN_NO_SPLIT,
-            self.TOKEN_WITH_SPLIT,
-            self.TOKEN_V2_WHITELIST,
-            self.TOKEN_V2_BLACKLIST,
+        recipient = data_stack.entries[0].data.data
+
+        r = TokenOwnershipRecord(
+            user_addr=recipient
         )
 
-    @classmethod
-    def from_str(cls, s: str) -> "TokenContractType":
-        return cls(s)
+        if (await self.ctrt.is_nft_ctrt):
+            r.token_idx = data_stack.entries[1].data.data
+        if (await self.ctrt.is_tok_ctrt):
+            r.amount = data_stack.entries[1].data.data
+
+        logger.debug(f"Found a user token ownership record: {r}")
+        self.records.append(r)
     
-    @classmethod
-    async def from_ctrt_id(cls, ctrt_id: str, api: pv.NodeAPI) -> "TokenContractType":
-        ctrt_type_str = await get_ctrt_type(ctrt_id, api)
-        return cls.from_str(ctrt_type_str)
-
-
-async def get_ctrt_info(ctrt_id: str, api: pv.NodeAPI) -> Dict[str, Any]:
-    """
-    Example response.
-    {
-        "contractId": "CF5HTwYNrZDFBG371jfTiKpNPfRpEHdgj6B",
-        "transactionId": "DwySUmHwTbaRBMBXjk6PmXKvow1wLi6bhpxteK2Smrph",
-        "type": "TokenContractWithWhitelist",
-        ...
-        "height": 1009393
-    }
-    """    
-    edpt = f"/contract/info/{ctrt_id}"
-    return await api.get(edpt)
-
-
-async def get_init_block_height(ctrt_id: str, api: pv.NodeAPI) -> int:
-    resp = await get_ctrt_info(ctrt_id, api)
-    return resp["height"]
-
-
-async def get_ctrt_type(ctrt_id: str, api: pv.NodeAPI) -> str:
-    resp = await get_ctrt_info(ctrt_id, api)
-    return resp["type"]
-
-
-async def get_block_at(height: int, api: pv.NodeAPI) -> Dict[str, Any]:
-    edpt = f"/blocks/at/{height}"
-    resp = await api.get(edpt)
-    return resp
-
-
-async def get_blocks(start_height: int, end_height: int, api: pv.NodeAPI) -> List[Dict[str, Any]]:
-    edpt = f"/blocks/seq/{start_height}/{end_height}"
-    resp = await api.get(edpt)
-    return resp
-
-
-async def is_valid_send_token_tx(tx: Dict[str, Any], api: pv.NodeAPI) -> bool:
-    try:
-        has_success_status = tx["status"] == TX_STATUS_SUCCESS
-        if not has_success_status:
+    async def _insert_to_db(self) -> None:
+        # TODO:
+        # insert to db here
+        self.records.clear()
+    
+    async def _is_desired_tx(self, tx: Dict[str, Any]) -> bool:
+        if not tx["status"] == TX_STATUS_SUCCESS:
             return False
 
-        is_exec_ctrt_tx = tx["type"] == EXEC_CTRT_TX_TYPE
-        if not is_exec_ctrt_tx:
+        if not tx["type"] == EXEC_CTRT_TX_TYPE:
             return False
 
-        ctrt_id = tx["contractId"]
-        ctrt_type = await TokenContractType.from_ctrt_id(ctrt_id, api)
-
-        is_send_func = ctrt_type.send_func_idx == tx["functionIndex"]
-        if not is_send_func:
+        if not tx["contractId"] == self.ctrt.ctrt_id:
+            return False
+        
+        if not tx["functionIndex"] == (await self.ctrt.send_func_idx):
             return False
 
-    except (ValueError, KeyError):
-        return False
-
-    return True
+        return True
 
 
 async def main():
     host = f"http://{conf.node_ip}:{conf.node_port}"
-
-    logger.info("Starting the main loop.")
+    api = await pv.NodeAPI.new(host)
+    chain = pv.Chain(api)
 
     try:
-        api = await pv.NodeAPI.new(host)
-        chain = pv.Chain(api)
-
-        for ctrt_id in conf.contract_ids:
-
-            logger.info(f"Monitoring contract: {ctrt_id}")
-
-            init_height = await get_init_block_height(ctrt_id, api)
-            start_height = init_height
-
-            while True:
-                latest_height = await chain.height
-                end_height = latest_height - UNCONFIRMED_THRESHOLD
-
-                for h in range(start_height, end_height + 1, MAX_BLOCKS_PER_REQ):
-                    blocks = await get_blocks(h, h + MAX_BLOCKS_PER_REQ - 1, api)
-
-                    for b in blocks:
-                        if b["transaction count"] <= 1:
-                            continue
-                        txs = b["transactions"]
-
-                        for tx in txs:
-                            if not await is_valid_send_token_tx(tx, api):
-                                continue
-                            if tx["contractId"] != ctrt_id:
-                                continue
-                            
-                            func_data = tx["functionData"]
-                            data_stack = PVDataStack.deserialize(
-                                base58.b58decode(func_data)
-                            )
-                            recipient = data_stack.entries[0].data.data
-
-                            ctrt_type = await TokenContractType.from_ctrt_id(ctrt_id, api)
-
-                            tok_idx = 0
-                            amount = 1
-
-                            if ctrt_type.is_nft_ctrt:
-                                tok_idx = data_stack.entries[1].data.data
-
-                            if ctrt_type.is_tok_ctrt:
-                                amount = data_stack.entries[1].data.data
-
-                            logger.debug(f'''Found a relevant txn! \n
-                                    "recipient": {recipient},
-                                    "token_index": {tok_idx},
-                                    "amount": {amount}'''
-                                )
-                            
-                            table = Base.metadata.tables[ctrt_id]
-
-                            stmt = (
-                                insert(table).
-                                values(user_addr=recipient, token_idx=tok_idx, amount=amount)
-                            )
-
-                            print(stmt)
-
-                            async with engine.begin() as conn:
-                                conn.execute(stmt)
-
-                # Wait for new confirmed blocks
-                start_height = end_height + 1
-                await asyncio.sleep(conf.block_time)
+        await asyncio.gather(*[
+            SendTokenTxMonitor(ctrt_id, chain).start()
+            for ctrt_id in conf.contract_ids
+        ])        
 
     finally:
         await api.sess.close()
