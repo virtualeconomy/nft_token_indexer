@@ -20,7 +20,3 @@ class TokenOwnership(Base):
     user_addr = Column(String)
     token_idx = Column(Integer, index=True)
     amount = Column(Integer)
-
-    __table_args__ = (
-        UniqueConstraint("user_addr", "token_idx", name="unique_user_addr_token_idx"),
-    )
