@@ -96,3 +96,4 @@ ENV/
 *.db
 vsystems-data/*
 *.tar.xz
+database

@@ -5,3 +5,5 @@ README.md
 docker-compose.yml
 __pycache__
 .db
+.database
+*.sqlite
