@@ -49,15 +49,13 @@ class TokenOwnershipRecord:
     @classmethod
     def get_create_table_stmt(cls, table: str) -> str:
         return f"""
-        CREATE TABLE "{table}"
-        IF NOT EXISTS
-        (
+        CREATE TABLE IF NOT EXISTS "{table}" (
             user_addr VARCHAR(255) NOT NULL,
             token_idx INTEGER NOT NULL,
             amount INTEGER NOT NULL,
-            CONSTRAINT unique_user_addr_token_idx (user_addr, token_idx),
-            INDEX idx_token_idx (token_idx),
+            UNIQUE (user_addr, token_idx)
         );
+        CREATE INDEX idx_token_idx ON "{table}"(token_idx);
         """
 
     @property 
