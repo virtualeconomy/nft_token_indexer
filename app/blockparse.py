@@ -6,13 +6,10 @@ import enum
 from typing import Any, Dict, List, Optional
 
 import base58
-from sqlalchemy import insert
-
 import py_v_sdk as pv
 from py_v_sdk.data_entry import DataStack as PVDataStack
 
 from log import logger
-from base import init_table
 import conf
 
 
