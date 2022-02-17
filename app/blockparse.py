@@ -244,6 +244,9 @@ class SendTokenTxMonitor:
 async def main():
     host = f"http://{conf.node_ip}:{conf.node_port}"
     api = await pv.NodeAPI.new(host)
+
+    logger.info(f"Connected to node: {host}")
+
     chain = pv.Chain(api)
     db_pool = await asyncpg.create_pool(
         user=conf.db_user,
