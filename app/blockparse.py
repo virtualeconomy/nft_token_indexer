@@ -1,18 +1,16 @@
 # block parsing logic be here
 import asyncio
+import asyncpg
 import dataclasses
 import enum
 from typing import Any, Dict, List, Optional
 
 import base58
-from sqlalchemy import insert
-
 import py_v_sdk as pv
 from py_v_sdk.data_entry import DataStack as PVDataStack
 
 from log import logger
 import conf
-from base import engine, Base
 
 
 MAX_BLOCKS_PER_REQ = 100
@@ -38,6 +36,33 @@ class TokenOwnershipRecord:
     user_addr: str
     token_idx: int = 0
     amount: int = 0
+
+    @classmethod
+    def get_insert_stmt(cls, table: str) -> str:
+        return f"""
+            INSERT INTO "{table}"
+            (user_addr, token_idx, amount)
+            VALUES
+            ($1, $2, $3);
+        """
+    
+    @classmethod
+    def get_create_table_stmt(cls, table: str) -> str:
+        return f"""
+        CREATE TABLE "{table}"
+        IF NOT EXISTS
+        (
+            user_addr VARCHAR(255) NOT NULL,
+            token_idx INTEGER NOT NULL,
+            amount INTEGER NOT NULL,
+            CONSTRAINT unique_user_addr_token_idx (user_addr, token_idx),
+            INDEX idx_token_idx (token_idx),
+        );
+        """
+
+    @property 
+    def insert_arg(self) -> tuple:
+        return (self.user_addr, self.token_idx, self.amount)
 
 
 class TokenContract:
@@ -114,12 +139,16 @@ class TokenContract:
 
 class SendTokenTxMonitor:
 
-    def __init__(self, ctrt_id: str, chain: pv.Chain) -> None:
+    def __init__(self, ctrt_id: str, chain: pv.Chain, db_pool: asyncpg.Pool) -> None:
         self.chain = chain
         self.ctrt = TokenContract(ctrt_id, chain.api)
+        self.db_pool = db_pool
         self.records: List["TokenOwnershipRecord"] = []
 
     async def start(self):
+        logger.info(f"Preparing table: {self.ctrt.ctrt_id}")
+        await self._prepare_table()
+
         logger.info(f"Start monitoring contract: {self.ctrt.ctrt_id}")
 
         start_height = await self.ctrt.init_height
@@ -131,10 +160,16 @@ class SendTokenTxMonitor:
             for h in range(start_height, end_height + 1, MAX_BLOCKS_PER_REQ):
                 blocks = await self.chain.get_blocks_within(h, h + MAX_BLOCKS_PER_REQ - 1)
                 await self._parse_blocks(blocks)
+                await self._insert_records()
 
-            await self._insert_to_db()
             start_height = end_height + 1
             await asyncio.sleep(conf.block_time)
+
+    async def _prepare_table(self) -> None:
+        async with self.db_pool.acquire() as conn:
+            await conn.execute(
+                TokenOwnershipRecord.get_create_table_stmt(table=self.ctrt.ctrt_id),
+            )
 
     async def _parse_blocks(self, blocks: List[Dict[str, Any]]) -> None:
         for b in blocks:
@@ -167,9 +202,16 @@ class SendTokenTxMonitor:
         logger.debug(f"Found a user token ownership record: {r}")
         self.records.append(r)
     
-    async def _insert_to_db(self) -> None:
-        # TODO:
-        # insert to db here
+    async def _insert_records(self) -> None:
+        async with self.db_pool.acquire() as conn:
+            await conn.executemany(
+                TokenOwnershipRecord.get_insert_stmt(table=self.ctrt.ctrt_id),
+                [
+                    r.insert_arg
+                    for r in self.records
+                ]
+            )
+
         self.records.clear()
     
     async def _is_desired_tx(self, tx: Dict[str, Any]) -> bool:
@@ -192,10 +234,16 @@ async def main():
     host = f"http://{conf.node_ip}:{conf.node_port}"
     api = await pv.NodeAPI.new(host)
     chain = pv.Chain(api)
+    db_pool = await asyncpg.create_pool(
+        user=conf.db_user,
+        password=conf.db_pass,
+        database=conf.db,
+        host=conf.db_ip,
+    )
 
     try:
         await asyncio.gather(*[
-            SendTokenTxMonitor(ctrt_id, chain).start()
+            SendTokenTxMonitor(ctrt_id, chain, db_pool).start()
             for ctrt_id in conf.contract_ids
         ])        
 
