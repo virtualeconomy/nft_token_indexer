@@ -12,3 +12,5 @@ COPY app/ /app
 WORKDIR /app
 
 ENV APP_ENV docker
+
+CMD ["uvicorn", "app.main:app", "--proxy-headers", "--host", "0.0.0.0", "--port", "8000"]
