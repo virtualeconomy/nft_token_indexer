@@ -162,8 +162,8 @@ class SendTokenTxMonitor:
             for h in range(start_height, end_height + 1, MAX_BLOCKS_PER_REQ):
                 blocks = await self.chain.get_blocks_within(h, h + MAX_BLOCKS_PER_REQ - 1)
                 await self._parse_blocks(blocks)
+                await self._insert_records()
 
-            await self._insert_to_db()
             start_height = end_height + 1
             await asyncio.sleep(conf.block_time)
 
