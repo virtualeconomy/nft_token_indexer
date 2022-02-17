@@ -175,7 +175,7 @@ class SendTokenTxMonitor:
         
         await conn.execute(f'''
             INSERT INTO {self.ctrt_id.lower()}(user_addr, token_idx, amount) VALUES($1, $2, $3)''', 
-                                                record.user_addr, record,token_idx, record.amount
+                                                record.user_addr, record.token_idx, record.amount
         )
         await conn.close()
     
