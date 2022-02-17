@@ -145,8 +145,6 @@ class SendTokenTxMonitor:
         self.db_pool = db_pool
         self.records: List["TokenOwnershipRecord"] = []
 
-        # we should have a table creation logic here
-
     async def start(self):
         logger.info(f"Preparing table: {self.ctrt.ctrt_id}")
         await self._prepare_table()
