@@ -1,20 +1,38 @@
 version: '3.7'
 services:
 
-  indexer:
+  api:
     tty: true
     container_name: indexer
     build: .
     volumes: 
-      - .conf.yaml:/app/conf.yaml
+      - ./conf.yaml:/app/conf.yaml
     ports:
       - "8000:8000"
     environment:
-      - BLOCK_TIME=4
-      - NODE_IP=stating.vsystems.dev
+      - DB_USER=postgres
+      - DB_PASS=postgres
+      - NODE_IP=staging.vsystems.dev
       - NODE_PORT=9922
       - NODE_API_KEY=mudsipecDic1950
-      - NETWORK=testnet
+      - DB_IP=db
+      - POSTGRES_DATABASE=indexer
+    restart: always
+    depends_on:
+      - db
+      - tsagaglalal
+
+  tsagaglalal:
+    container_name: tsagaglalal
+    build: .
+    command: python3 blockparse.py
+    volumes:
+      - ./conf.yaml:/app/conf.yaml
+    environment:
+      - BLOCK_TIME=4
+      - NODE_IP=staging.vsystems.dev
+      - NODE_PORT=9922
+      - NODE_API_KEY=mudsipecDic1950
       - DB_USER=postgres
       - DB_PASS=postgres
       - DB_IP=db
