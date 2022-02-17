@@ -45,6 +45,20 @@ class TokenOwnershipRecord:
             VALUES
             ($1, $2, $3);
         """
+    
+    @classmethod
+    def get_create_table_stmt(cls, table: str) -> str:
+        return f"""
+        CREATE TABLE "{table}"
+        IF NOT EXISTS
+        (
+            user_addr VARCHAR(255) NOT NULL,
+            token_idx INTEGER NOT NULL,
+            amount INTEGER NOT NULL,
+            CONSTRAINT unique_user_addr_token_idx (user_addr, token_idx),
+            INDEX idx_token_idx (token_idx),
+        );
+        """
 
     @property 
     def insert_arg(self) -> tuple:
@@ -134,6 +148,9 @@ class SendTokenTxMonitor:
         # we should have a table creation logic here
 
     async def start(self):
+        logger.info(f"Preparing table: {self.ctrt.ctrt_id}")
+        await self._prepare_table()
+
         logger.info(f"Start monitoring contract: {self.ctrt.ctrt_id}")
 
         start_height = await self.ctrt.init_height
@@ -149,6 +166,12 @@ class SendTokenTxMonitor:
             await self._insert_to_db()
             start_height = end_height + 1
             await asyncio.sleep(conf.block_time)
+
+    async def _prepare_table(self) -> None:
+        async with self.db_pool.acquire() as conn:
+            await conn.execute(
+                TokenOwnershipRecord.get_create_table_stmt(table=self.ctrt.ctrt_id),
+            )
 
     async def _parse_blocks(self, blocks: List[Dict[str, Any]]) -> None:
         for b in blocks:
@@ -181,7 +204,7 @@ class SendTokenTxMonitor:
         logger.debug(f"Found a user token ownership record: {r}")
         self.records.append(r)
     
-    async def _flush_records(self) -> None:
+    async def _insert_records(self) -> None:
         async with self.db_pool.acquire() as conn:
             await conn.executemany(
                 TokenOwnershipRecord.get_insert_stmt(table=self.ctrt.ctrt_id),
