@@ -3,7 +3,7 @@ import yaml
 
 if environ.get('APP_ENV') == 'docker':
     node_api_key = environ.get('NODE_API_KEY', 'nodeapikey')
-    node_ip = environ.get('NODEIP', 'vsystems')
+    node_ip = environ.get('NODE_IP', 'vsystems')
     node_port = environ.get('NODE_PORT', '9924')
     network = environ.get('NETWORK', 'testnet')
     block_time = int(environ.get('BLOCK_TIME', '4'))
