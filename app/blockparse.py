@@ -37,6 +37,19 @@ class TokenOwnershipRecord:
     token_idx: int = 0
     amount: int = 0
 
+    @classmethod
+    def get_insert_stmt(cls, table: str) -> str:
+        return f"""
+            INSERT INTO "{table}"
+            (user_addr, token_idx, amount)
+            VALUES
+            ($1, $2, $3);
+        """
+
+    @property 
+    def insert_arg(self) -> tuple:
+        return (self.user_addr, self.token_idx, self.amount)
+
 
 class TokenContract:
 
@@ -112,10 +125,10 @@ class TokenContract:
 
 class SendTokenTxMonitor:
 
-    def __init__(self, ctrt_id: str, chain: pv.Chain) -> None:
+    def __init__(self, ctrt_id: str, chain: pv.Chain, db_pool: asyncpg.Pool) -> None:
         self.chain = chain
         self.ctrt = TokenContract(ctrt_id, chain.api)
-        self.ctrt_id = ctrt_id
+        self.db_pool = db_pool
         self.records: List["TokenOwnershipRecord"] = []
 
         # we should have a table creation logic here
@@ -168,16 +181,17 @@ class SendTokenTxMonitor:
         logger.debug(f"Found a user token ownership record: {r}")
         self.records.append(r)
     
-    async def _insert_to_db(self, record: TokenOwnershipRecord) -> None:
+    async def _flush_records(self) -> None:
+        async with self.db_pool.acquire() as conn:
+            await conn.executemany(
+                TokenOwnershipRecord.get_insert_stmt(table=self.ctrt.ctrt_id),
+                [
+                    r.insert_arg
+                    for r in self.records
+                ]
+            )
 
-        conn = await asyncpg.connect(user=conf.db_user, password=conf.db_pass,
-                                     database=conf.db, host=conf.db_ip)
-        
-        await conn.execute(f'''
-            INSERT INTO {self.ctrt_id.lower()}(user_addr, token_idx, amount) VALUES($1, $2, $3)''', 
-                                                record.user_addr, record.token_idx, record.amount
-        )
-        await conn.close()
+        self.records.clear()
     
     async def _is_desired_tx(self, tx: Dict[str, Any]) -> bool:
         if not tx["status"] == TX_STATUS_SUCCESS:
@@ -199,10 +213,16 @@ async def main():
     host = f"http://{conf.node_ip}:{conf.node_port}"
     api = await pv.NodeAPI.new(host)
     chain = pv.Chain(api)
+    db_pool = await asyncpg.create_pool(
+        user=conf.db_user,
+        password=conf.db_pass,
+        database=conf.db,
+        host=conf.db_ip,
+    )
 
     try:
         await asyncio.gather(*[
-            SendTokenTxMonitor(ctrt_id, chain).start()
+            SendTokenTxMonitor(ctrt_id, chain, db_pool).start()
             for ctrt_id in conf.contract_ids
         ])        
 
