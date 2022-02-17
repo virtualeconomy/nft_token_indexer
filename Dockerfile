@@ -1,4 +1,4 @@
-FROM python:3.9-slim
+FROM python:3.10-slim
 
 RUN apt-get update && \
     apt-get upgrade -y && \
@@ -13,4 +13,4 @@ WORKDIR /app
 
 ENV APP_ENV docker
 
-CMD ["uvicorn", "app.main:app", "--proxy-headers", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--proxy-headers", "--host", "0.0.0.0", "--port", "8000"]
