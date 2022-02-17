@@ -8,7 +8,7 @@ services:
     volumes: 
       - ./conf.yaml:/app/conf.yaml
     ports:
-      - "8000:8000"
+      - "8080:8080"
     environment:
       - DB_USER=postgres
       - DB_PASS=postgres
