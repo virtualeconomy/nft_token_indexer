@@ -32,18 +32,17 @@ class TokenContractType(enum.Enum):
 
 
 @dataclasses.dataclass
-class TokenOwnershipRecord:
+class TokenOwnership:
     user_addr: str
     token_idx: int = 0
-    amount: int = 0
 
     @classmethod
     def get_insert_stmt(cls, table: str) -> str:
         return f"""
             INSERT INTO "{table}"
-            (user_addr, token_idx, amount)
+            (user_addr, token_idx)
             VALUES
-            ($1, $2, $3);
+            ($1, $2);
         """
     
     @classmethod
@@ -52,7 +51,6 @@ class TokenOwnershipRecord:
         CREATE TABLE IF NOT EXISTS "{table}" (
             user_addr VARCHAR(255) NOT NULL,
             token_idx INTEGER NOT NULL,
-            amount INTEGER NOT NULL,
             UNIQUE (user_addr, token_idx)
         );
         CREATE INDEX idx_token_idx ON "{table}"(token_idx);
@@ -60,7 +58,9 @@ class TokenOwnershipRecord:
 
     @property 
     def insert_arg(self) -> tuple:
-        return (self.user_addr, self.token_idx, self.amount)
+        return (self.user_addr, self.token_idx)
+
+
 
 
 class TokenContract:
