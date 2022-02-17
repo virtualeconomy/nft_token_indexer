@@ -31,36 +31,46 @@ class TokenContractType(enum.Enum):
     TOKEN_V2_BLACKLIST = "TokenCtrtWithoutSplitV2BlackList"
 
 
-@dataclasses.dataclass
 class TokenOwnership:
-    user_addr: str
-    token_idx: int = 0
-
-    @classmethod
-    def get_insert_stmt(cls, table: str) -> str:
+    """
+    Represents the token ownership table in db.
+    """
+    @staticmethod
+    def get_create_ownership_stmt(table: str) -> str:
         return f"""
             INSERT INTO "{table}"
             (user_addr, token_idx)
             VALUES
-            ($1, $2);
+            ($1, $2)
+            ON CONFLICT DO NOTHING;
         """
     
-    @classmethod
-    def get_create_table_stmt(cls, table: str) -> str:
+    @staticmethod
+    def get_remove_ownership_stmt(table: str) -> str:
+        return f"""
+            DELETE FROM "{table}"
+            WHERE user_addr = $1
+            AND token_idx = $2
+        """
+    
+    @staticmethod
+    def get_create_table_stmt(table: str) -> str:
         return f"""
         CREATE TABLE IF NOT EXISTS "{table}" (
             user_addr VARCHAR(255) NOT NULL,
             token_idx INTEGER NOT NULL,
             UNIQUE (user_addr, token_idx)
         );
-        CREATE INDEX idx_token_idx ON "{table}"(token_idx);
+        CREATE INDEX IF NOT EXISTS idx_token_idx ON "{table}"(token_idx);
         """
 
-    @property 
-    def insert_arg(self) -> tuple:
-        return (self.user_addr, self.token_idx)
 
-
+@dataclasses.dataclass
+class NFTSendRecord:
+   sender: str
+   recipient: str
+   ctrt_id: str
+   tok_idx: str
 
 
 class TokenContract:
@@ -141,7 +151,7 @@ class SendTokenTxMonitor:
         self.chain = chain
         self.ctrt = TokenContract(ctrt_id, chain.api)
         self.db_pool = db_pool
-        self.records: List["TokenOwnershipRecord"] = []
+        self.records: List["NFTSendRecord"] = []
 
     async def start(self):
         logger.info(f"Preparing table: {self.ctrt.ctrt_id}")
@@ -158,7 +168,7 @@ class SendTokenTxMonitor:
             for h in range(start_height, end_height + 1, MAX_BLOCKS_PER_REQ):
                 blocks = await self.chain.get_blocks_within(h, h + MAX_BLOCKS_PER_REQ - 1)
                 await self._parse_blocks(blocks)
-                await self._insert_records()
+                await self._update_db()
 
             start_height = end_height + 1
             await asyncio.sleep(conf.block_time)
@@ -166,7 +176,7 @@ class SendTokenTxMonitor:
     async def _prepare_table(self) -> None:
         async with self.db_pool.acquire() as conn:
             await conn.execute(
-                TokenOwnershipRecord.get_create_table_stmt(table=self.ctrt.ctrt_id),
+                TokenOwnership.get_create_table_stmt(table=self.ctrt.ctrt_id),
             )
 
     async def _parse_blocks(self, blocks: List[Dict[str, Any]]) -> None:
@@ -186,29 +196,32 @@ class SendTokenTxMonitor:
         data_stack = PVDataStack.deserialize(
             base58.b58decode(func_data)
         )
-        recipient = data_stack.entries[0].data.data
 
-        r = TokenOwnershipRecord(
-            user_addr=recipient
+        r = NFTSendRecord(
+            sender=tx["proofs"][0]["address"],
+            recipient=data_stack.entries[0].data.data,
+            ctrt_id=tx["contractId"],
+            tok_idx=data_stack.entries[1].data.data,
         )
 
-        if (await self.ctrt.is_nft_ctrt):
-            r.token_idx = data_stack.entries[1].data.data
-        if (await self.ctrt.is_tok_ctrt):
-            r.amount = data_stack.entries[1].data.data
-
-        logger.debug(f"Found a user token ownership record: {r}")
+        logger.debug(f"Found a NFT send record: {r}")
         self.records.append(r)
     
-    async def _insert_records(self) -> None:
+    async def _update_db(self) -> None:
         async with self.db_pool.acquire() as conn:
-            await conn.executemany(
-                TokenOwnershipRecord.get_insert_stmt(table=self.ctrt.ctrt_id),
-                [
-                    r.insert_arg
-                    for r in self.records
-                ]
-            )
+
+            for r in self.records:
+                async with conn.transaction():
+                    await conn.execute(
+                        TokenOwnership.get_remove_ownership_stmt(table=r.ctrt_id),
+                        r.sender,
+                        r.tok_idx,
+                    )
+                    await conn.execute(
+                        TokenOwnership.get_create_ownership_stmt(table=r.ctrt_id),
+                        r.recipient,
+                        r.tok_idx,
+                    )
 
         self.records.clear()
     
