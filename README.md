@@ -2,12 +2,20 @@
 
 > Tsagaglalal [sa-ga-gla-la], or “She who watches” in the Wasco-Wishram language.
 
+[![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](https://www.python.org/downloads/) [![License](https://img.shields.io/badge/License-BSD_3--Clause-green.svg)](./LICENSE)
+
 ![alt text](https://www.freevector.com/uploads/vector/preview/3857/FreeVector-Tsagaglalal.jpg)
 
 A V Systems NFT token indexer service.
 
-This lean and effcient service watches the NFT transactions on preset contracts, saves them to a local database to be consumed over the API later on.
+This lean and effcient service watches the NFT transactions on preset contracts, saves them to a local database to be consumed over the API later on.  
 Service is architected to be able to serve hundrets, if not thousands, of simultaneous NFT token contracts but for the moment it's only used by the [Felix project](https://saveaword.com).
+
+Tsagaglalal is implemented using the following technologies:
+
+[py_v_sdk](https://github.com/virtualeconomy/py-v-sdk.git@develop#egg=py_v_sdk)  
+[starlite](https://github.com/starlite-api/starlite)  
+[asyncpg](https://github.com/MagicStack/asyncpg)
 
 ## Config
 
@@ -41,4 +49,5 @@ Retuns an array:
 	"TWtXWsFec5sxxYWrS92wTn6zcKMJtRPUEW9but4qM",
 	"TWtXWsFec5sxxYWrS92wTn6zcKMJtRPUEW9dNxQnB",
 	"TWtXWsFec5sxxYWrS92wTn6zcKMJtRPUEW9pVUkpJ"
+]
 ```
