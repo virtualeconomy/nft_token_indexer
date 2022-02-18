@@ -12,9 +12,9 @@ services:
     environment:
       - DB_USER=postgres
       - DB_PASS=postgres
-      - NODE_IP=staging.vsystems.dev
+      - NODE_IP=
       - NODE_PORT=9922
-      - NODE_API_KEY=mudsipecDic1950
+      - NODE_API_KEY=
       - DB_IP=db
       - POSTGRES_DATABASE=indexer
     restart: always
@@ -30,9 +30,9 @@ services:
       - ./conf.yaml:/app/conf.yaml
     environment:
       - BLOCK_TIME=4
-      - NODE_IP=staging.vsystems.dev
+      - NODE_IP=
       - NODE_PORT=9922
-      - NODE_API_KEY=mudsipecDic1950
+      - NODE_API_KEY=
       - DB_USER=postgres
       - DB_PASS=postgres
       - DB_IP=db
