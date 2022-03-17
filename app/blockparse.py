@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 
 import base58
 import py_vsys as pv
-from py_v_sdk.data_entry import DataStack as PVDataStack
+from py_vsys.data_entry import DataStack as PVDataStack
 
 from log import logger
 import conf
