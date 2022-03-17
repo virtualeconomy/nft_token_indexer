@@ -3,4 +3,4 @@ asyncpg
 starlite
 uvicorn
 base58
--e git+https://github.com/virtualeconomy/py-v-sdk.git@develop#egg=py_v_sdk
+py-vsys
