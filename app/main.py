@@ -9,7 +9,7 @@ from starlite import Starlite, CORSConfig, MediaType, get
 import conf
 from log import logger
 
-import py_v_sdk as pv
+import py_vsys as pv
 
 cors_config = CORSConfig(allow_origins=["*"])
 
