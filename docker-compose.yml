@@ -3,7 +3,6 @@ services:
 
   api:
     tty: true
-    container_name: indexer
     build: .
     volumes: 
       - ./conf.yaml:/app/conf.yaml
@@ -23,7 +22,6 @@ services:
       - tsagaglalal
 
   tsagaglalal:
-    container_name: tsagaglalal
     build: .
     command: python3 blockparse.py
     volumes:
@@ -43,7 +41,6 @@ services:
 
   db:
     image: postgres:14.2-alpine
-    container_name: indexer_db
     restart: always
     environment:
       - POSTGRES_USER=postgres
